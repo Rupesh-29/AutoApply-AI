@@ -50,3 +50,5 @@ Job Screenshot
 ## Author
 
 Rupesh Rakada
+
+Note: API keys and credentials are not included for security reasons.
