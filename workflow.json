@@ -1,0 +1,668 @@
+{
+  "name": "OCR Test - Job Screenshot Extractor",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "AutoApply AI - Job Application Assistant",
+        "formDescription": "Upload a job screenshot and generate ATS analysis, resume suggestions, and a cold email automatically.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Company Name"
+            },
+            {
+              "fieldLabel": "Job Role"
+            },
+            {
+              "fieldLabel": "Job Screenshot",
+              "fieldType": "file"
+            },
+            {
+              "fieldLabel": "User Profile"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "29e724ca-50c0-4d3b-935c-cbbd689b4778",
+      "name": "On form submission",
+      "webhookId": "a9a9329a-a933-4c85-a03c-8399a3fa6b42"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ocr.space/parse/image",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "K85628137888957"
+            },
+            {
+              "name": "language",
+              "value": "eng"
+            },
+            {
+              "name": "isoverlayrequired",
+              "value": "false"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "Job_Screenshot"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "b3e433c3-dc46-42e3-aa5b-50cf51761b0a",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        352,
+        208
+      ],
+      "id": "349ef6c0-438a-4ff0-8598-f64cf2b3e780",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "UdrVKKA03Jm0Ns05",
+          "name": "Google Gemini(PaLM) Api account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a job description analyzer.\n\nExtract information from the OCR text below.\n\nOCR Text:\n{{$json.ParsedResults[0].ParsedText}}\n\nReturn ONLY JSON:\n\n{\n  \"company\":\"\",\n  \"role\":\"\",\n  \"required_skills\":[],\n  \"job_description\":\"\"\n}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        416,
+        0
+      ],
+      "id": "5d2c5000-fb23-4be8-8101-8228aa196f8b",
+      "name": "JD Extraction",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $node[\"JD Extraction\"].json.text;\n\nconst jd = JSON.parse(\n  raw.replace(/```json/g, \"\").replace(/```/g, \"\").trim()\n);\n\nconst requiredSkills = jd.required_skills || [];\n\nconst userSkills = [\"Python\", \"Excel\", \"Google Sheets\", \"n8n\", \"AI\", \"Automation\"];\n\nconst matched = requiredSkills.filter(skill =>\n  userSkills.some(userSkill =>\n    userSkill.toLowerCase() === skill.toLowerCase()\n  )\n);\n\nconst missing = requiredSkills.filter(skill => !matched.includes(skill));\n\nconst score = requiredSkills.length > 0\n  ? Math.round((matched.length / requiredSkills.length) * 100)\n  : 0;\n\nreturn [{\n  json: {\n    company: jd.company,\n    role: jd.role,\n    ATS_Score: score,\n    Matched_Skills: matched,\n    Missing_Skills: missing\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        0
+      ],
+      "id": "3ddedb4e-5981-4b69-ab5f-8435aceccb18",
+      "name": "ATS Score Calculation"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d9ec0288-7840-411f-a21d-074580576df4",
+              "name": "=company",
+              "value": "Amazon",
+              "type": "string"
+            },
+            {
+              "id": "ea3705aa-ad26-47e7-9917-2fd2f3cc495b",
+              "name": "Role",
+              "value": "Data Analyst Intern",
+              "type": "string"
+            },
+            {
+              "id": "a52c88c9-39aa-431f-9357-d79de035bfb5",
+              "name": "job_description",
+              "value": "We are looking for a Data Analyst Intern with knowledge of Python, SQL, Excel, Power BI and data visualization. Candidates should have strong analytical skills and the ability to work with large datasets. Knowledge of machine learning is a plus.",
+              "type": "string"
+            },
+            {
+              "id": "c0eb0614-5c01-4298-952c-0d6497a9bfff",
+              "name": "user_profile",
+              "value": "Name: Rupesh Education: B.Tech EEE 2026 Skills: Python, n8n, Google Sheets, Gmail Automation, HTML, CSS, JavaScript Projects: Digital Overload AI, Signal Noise AI Certifications: AI Mastery Course, RINL Internship, SkillDzire EV Target Role: Data Analyst",
+              "type": "string"
+            },
+            {
+              "id": "2f066329-1aef-4e1d-837d-d8c6f8f63a75",
+              "name": "Company",
+              "value": "={{$node[\"ATS Score Calculation\"].json.company}}",
+              "type": "string"
+            },
+            {
+              "id": "1cc641a3-b5f4-4970-821e-8e963acb494d",
+              "name": "Role",
+              "value": "={{$node[\"ATS Score Calculation\"].json.role}}",
+              "type": "string"
+            },
+            {
+              "id": "66e42407-7878-4a9e-a58a-870817aa0b7c",
+              "name": "ATS Score",
+              "value": "={{$node[\"ATS Score Calculation\"].json.ATS_Score}}",
+              "type": "string"
+            },
+            {
+              "id": "4b5e89b3-46dc-4170-b04e-6a37c2681664",
+              "name": "Matched Skills",
+              "value": "={{$node[\"ATS Score Calculation\"].json.Matched_Skills}}",
+              "type": "string"
+            },
+            {
+              "id": "522a66f7-b129-458c-bcf5-08a72902ce72",
+              "name": "Missing Skills",
+              "value": "={{$node[\"ATS Score Calculation\"].json.Missing_Skills}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        960,
+        0
+      ],
+      "id": "c6392850-b83a-4742-992c-84d39c89c6a5",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an ATS Resume Optimization Expert.\n\nCompany:\n{{$json.company}}\n\nRole:\n{{$json.role}}\n\nCurrent ATS Score:\n{{$json[\"ATS Score\"]}}\n\nMatched Skills:\n{{$json[\"Matched Skills\"]}}\n\nMissing Skills:\n{{$json[\"Missing Skills\"]}}\n\nUser Profile:\n{{$json.user_profile}}\n\nAnalyze the user's profile against the job requirements.\n\nProvide:\n\n1. ATS Match Summary\n\n2. Skills that should be highlighted in the resume\n\n3. Missing skills that should be learned\n\n4. Resume bullet points that should be emphasized\n\n5. Projects that should be highlighted\n\n6. Certifications that should be highlighted\n\n7. Estimated ATS score after improvements\n\nKeep the response structured and professional.",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1168,
+        0
+      ],
+      "id": "41d7c96a-668c-4fbd-8098-cc99e6077806",
+      "name": "Basic LLM Chain",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an ATS resume writer.\n\nUse the resume optimization analysis below to create improved resume content.\n\nResume Optimization Analysis:\n{{$json.text}}\n\nUser Profile:\n{{$node[\"Edit Fields\"].json.user_profile}}\n\nJob Role:\n{{$node[\"Edit Fields\"].json.Role}}\n\nCompany:\n{{$node[\"Edit Fields\"].json.company}}\n\nCreate:\n\n1. Tailored Professional Summary\n2. Skills Section\n3. Project Bullet Points\n4. Certification Highlights\n\nReturn ONLY valid JSON:\n\n{\n  \"tailored_summary\": \"\",\n  \"skills_section\": [],\n  \"project_bullets\": [],\n  \"certification_highlights\": []\n}",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1488,
+        0
+      ],
+      "id": "c9bb4a5a-c128-48bc-8685-75ca4d1425a2",
+      "name": "Basic LLM Chain1"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1392,
+        208
+      ],
+      "id": "c79f8252-41e9-498d-9f70-fb74802b0925",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "UdrVKKA03Jm0Ns05",
+          "name": "Google Gemini(PaLM) Api account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a professional job application assistant.\n\nUsing the following information generate a personalized cold email.\n\nCompany:\n{{$node[\"Edit Fields\"].json.company}}\n\nRole:\n{{$node[\"Edit Fields\"].json.role}}\n\nCandidate:\n{{$node[\"Edit Fields\"].json.user_profile}}\n\nATS Resume Content:\n{{$node[\"Basic LLM Chain1\"].json.text}}\n\nRequirements:\n\n1. Professional tone\n2. 150-200 words\n3. Mention relevant skills\n4. Mention enthusiasm for the role\n5. Include a clear call to action\n6. End politely\n\nReturn only the email body.",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1808,
+        0
+      ],
+      "id": "bc8aec66-983e-4592-9f7a-def170cf4c5c",
+      "name": "Basic LLM Chain2"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1744,
+        208
+      ],
+      "id": "439c14e7-dfd0-446a-8767-1ecf348c9e92",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "UdrVKKA03Jm0Ns05",
+          "name": "Google Gemini(PaLM) Api account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1bDj2MQ3BgLIEXp5NNPi7f6fcK8GnMGnKxmNiNqn_Z-0/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{$now}}",
+            "Company": "={{$json.company}}",
+            "Role": "={{$json.role}}",
+            "ATS_Score": "={{ $json.ats_score }}",
+            "Matched_Skills": "={{ $json.matched_skills }}",
+            "Missing_Skills": "={{ $json.missing_skills }}",
+            "Status": " Draft Created",
+            "Job_Description": "={{$json.job_description}}",
+            "Required_Skills": "={{ $json.required_skills }}",
+            "Cold_Email": "={{$json.email_body}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Role",
+              "displayName": "Role",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Job_Description",
+              "displayName": "Job_Description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Required_Skills",
+              "displayName": "Required_Skills",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Matched_Skills",
+              "displayName": "Matched_Skills",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Missing_Skills",
+              "displayName": "Missing_Skills",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ATS_Score",
+              "displayName": "ATS_Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Tailored_Summary",
+              "displayName": "Tailored_Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Cold_Email",
+              "displayName": "Cold_Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2288,
+        0
+      ],
+      "id": "28af84ad-170e-41dc-8594-00910eb0eecd",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a6N6PS4nthgTznDe",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const jdRaw = $node[\"JD Extraction\"].json.text;\n\nconst jdData = JSON.parse(\n  jdRaw.replace(/```json/g, \"\").replace(/```/g, \"\").trim()\n);\n\nreturn [{\n  json: {\n    company: $node[\"Edit Fields\"].json.company,\n    role: $node[\"Edit Fields\"].json.Role,\n    ats_score: $node[\"ATS Score Calculation\"].json.ATS_Score,\n    matched_skills: $node[\"ATS Score Calculation\"].json.Matched_Skills,\n    missing_skills: $node[\"ATS Score Calculation\"].json.Missing_Skills,\n    job_description: jdData.job_description,\n    required_skills: jdData.required_skills,\n    email_body: $json.text\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2128,
+        0
+      ],
+      "id": "8b04fd3f-57d7-4976-a601-cfc4ad3f4742",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "=Application for {{$json.Role}} at {{$json.Company}}",
+        "message": "={{$json.Cold_Email}}",
+        "options": {
+          "sendTo": "rupeshnagireddy74@gmail.com"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2480,
+        0
+      ],
+      "id": "fd738839-d814-48e4-b4c4-b15758566d95",
+      "name": "Create a draft",
+      "webhookId": "db1dc56d-8f86-4d51-a392-8bb07c5f5241",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "g2e3nuL26GOEOz0C",
+          "name": "Gmail account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        208
+      ],
+      "id": "f939b76e-7baf-4733-af33-c8e65d063e08",
+      "name": "Google Gemini Chat Model3",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "UdrVKKA03Jm0Ns05",
+          "name": "Google Gemini(PaLM) Api account 3"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "JD Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "JD Extraction",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JD Extraction": {
+      "main": [
+        [
+          {
+            "node": "ATS Score Calculation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATS Score Calculation": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain1": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Create a draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c7b8ba2c-bd11-4de5-93c6-ea5f3d8b7298",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8cf46de6e786a1dde05997a6ebb6dea685de8608eb7410101e8a111abfa7fec7"
+  },
+  "id": "3lVSacOQ2hvt4l72",
+  "tags": []
+}
